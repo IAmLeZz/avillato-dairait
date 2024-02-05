@@ -1,0 +1,1 @@
+export const GOLANG_SERVER = import.meta.env.VITE_GOLANG_SERVER;

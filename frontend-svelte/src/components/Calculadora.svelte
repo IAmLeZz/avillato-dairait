@@ -1,134 +1,149 @@
-<script>
-    import { onMount } from 'svelte';
-    import { history } from './store.js'
-    let display = '';
-    let result = '';
-    let num1 = '';
-    let num2 = '';
-    let operator = '';
-  
-    const calculate = async () => {
-  if (num1 && num2 && operator) {
-    const response = await fetch('http://localhost:8080/operation', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        operator: operator,
-        num1: Number(num1),
-        num2: Number(num2)
-      })
-    });
-    const res = await response.json();
-    result =  Math.round(res.result*100)/100;
-    num1 = '';
-    num2 = '';
-    operator = '';
-    console.log(result)
-    const newEntry = {
+<script lang="ts">
+  import { GOLANG_SERVER } from "../utils/constants";
+  import { history } from "./store";
+
+  let currentExpression: string = "";
+  let result: string = "";
+
+  // Enviar expresión al backend de Go. Refrescar historial
+  const calculate = async () => {
+    if (currentExpression) {
+      const response = await fetch(`${GOLANG_SERVER}/operation`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          expression: currentExpression,
+        }),
+      });
+      const res = await response.json();
+      result = (Math.round(res.result * 100) / 100).toString();
+      const newEntry: Operation = {
         result: res.result,
         time: res.time,
         operation: res.operation,
+      };
+      history.update((oldHistory: Operation[]) => [...oldHistory, newEntry]);
     }
-    history.update(oldHistory => [...oldHistory, newEntry]);
-  }
-}
-        const handleNumberClick = (number) => {
-        if (!operator) {
-            num1 = num1 + number;
-        } else {
-            num2 = num2 + number;
-        }
-        display = num1 + operator + num2;
-    }
-  
+  };
 
-  const handleOperatorClick = (op) => {
-  if (result) {
-    num1 = result.toString();
-    result = '';
-  }
-  if (op === '-' && num1 === '') {
-    num1 = '-';
-    display = num1;
-  } else {
-    operator = op;
-    display = num1 + operator;
-  }
-}
-const clear = () => {
-    display = '';
-    num1 = '';
-    num2 = '';
-    operator = '';
-    result = '';
-}
-  
-    const clearEntry = () =>{
-      if (!operator) {
-        num1 = '';
-      } else {
-        num2 = '';
+  // Manejar botones ingresados. Si es "=" calcular. Si no, añadir a la operación. Utilizar ultimo resultado después de clickear en otro botón.
+  const handleButtonClick = (value: string) => {
+    if (value === "=") {
+      calculate();
+    } else if (result) {
+      currentExpression = result += value;
+      result = "";
+    } else {
+      // Check if the last character is an operator
+      const lastChar = currentExpression.slice(-1);
+      const operators = ["+", "-", "*", "/"];
+      if (!operators.includes(lastChar) || !operators.includes(value)) {
+        currentExpression += value;
       }
-      display = '';
-      result = '';
+      result = "";
     }
-  
-    const changeSign = () => {
-      if (!operator) {
-        num1 = (-Number(num1)).toString();
-        display = num1;
-      } else {
-        num2 = (-Number(num2)).toString();
-        display = num2;
-      }
+  };
+
+  // Limpiar todo
+  const clear = () => {
+    currentExpression = "";
+    result = "";
+  };
+
+  // Limpiar último dato
+  const clearEntry = () => {
+    currentExpression = currentExpression.slice(0, -1);
+  };
+
+  const changeSign = () => {
+    if (currentExpression.charAt(0) === "-") {
+      currentExpression = currentExpression.slice(1);
+    } else {
+      currentExpression = `-${currentExpression}`;
     }
+  };
+</script>
 
-    const handleDecimalClick = () => {
-  if (!operator) {
-    if (!num1.includes('.')) {
-      num1 += '.';
-    }
-  } else {
-    if (!num2.includes('.')) {
-      num2 += '.';
-    }
-  }
-  display = num1 + operator + num2;
-}
-  </script>
-
-  <div class="calculator bg-white border border-gray-300 p-6 rounded-lg min-w-[350px]">
-    <div class="display bg-black text-white p-2 rounded mb-4">
-      <p class="text-right min-h-6 text-white">{display} {(result) && (" = " + result)}</p>
-    </div>
-  
-    <div class="grid grid-cols-4 gap-3">
-      <button class="bg-orange-500 text-white p-4 rounded" on:click={clearEntry}>CE</button>
-      <button class="bg-orange-500 text-white p-4 rounded" on:click={clear}>C</button>
-      <button class="bg-red-500 text-white p-4 rounded" on:click={changeSign}>±</button>
-      <button class="bg-red-500 text-white p-4 rounded" on:click={() => handleOperatorClick('%')}>%</button>
-  
-      <button class="bg-blue-500 text-white p-4 rounded" on:click={() => handleNumberClick('7')}>7</button>
-      <button class="bg-blue-500 text-white p=4 rounded" on:click={() => handleNumberClick('8')}>8</button> 
-      <button class="bg-blue-500 text-white p=4 rounded" on:click={() => handleNumberClick('9')}>9</button> 
-      <button class="bg-red-800 text-white p=4 rounded" on:click={() => handleOperatorClick('/')}>/</button> 
-
-      <button class="bg-blue-500 text-white p-4 rounded" on:click={() => handleNumberClick('4')}>4</button>
-      <button class="bg-blue-500 text-white p=4 rounded" on:click={() => handleNumberClick('5')}>5</button> 
-      <button class="bg-blue-500 text-white p=4 rounded" on:click={() => handleNumberClick('6')}>6</button> 
-      <button class="bg-red-800 text-white p=4 rounded" on:click={() => handleOperatorClick('*')}>x</button> 
-
-      <button class="bg-blue-500 text-white p-4 rounded" on:click={() => handleNumberClick('3')}>3</button>
-      <button class="bg-blue-500 text-white p=4 rounded" on:click={() => handleNumberClick('2')}>2</button> 
-      <button class="bg-blue-500 text-white p=4 rounded" on:click={() => handleNumberClick('1')}>1</button> 
-      <button class="bg-red-800 text-white p=4 rounded" on:click={() => handleOperatorClick('-')}>-</button> 
-       
-      <button class="bg-blue-500 text-white p-4 rounded" on:click={() => handleNumberClick('0')}>0</button>
-      <button class="bg-blue-500 text-white p=4 rounded" on:click={()=> handleDecimalClick()}>.</button> 
-      <button class="bg-green-700 text-white p=4 rounded" on:click={calculate}>=</button>
-      <button class="bg-red-800 text-white p=4 rounded" on:click={() => handleOperatorClick('+')}>+</button>
-       
-    </div>
+<div
+  class="calculator bg-white border border-gray-300 p-6 rounded-lg min-w-[350px] max-h-[450px]"
+>
+  <div
+    class="display bg-black text-white p-2 rounded mb-4 border-[5px] border-gray-500 border-double"
+  >
+    <p class="text-right min-h-6 text-white">
+      {currentExpression}
+      {result && " = " + result}
+    </p>
   </div>
+
+  <div class="grid grid-cols-4 gap-3">
+    <button
+      class="bg-red-500 text-white p-4 rounded hover:bg-red-600 transition"
+      on:click={clearEntry}>CE</button
+    >
+    <button
+      class="bg-red-500 text-white p-4 rounded hover:bg-red-600 transition"
+      on:click={clear}>C</button
+    >
+    <button
+      class="bg-orange-500 text-white p-4 rounded hover:bg-orange-600 transition"
+      on:click={changeSign}>+/-</button
+    >
+    <button
+      class="bg-orange-500 text-white p-4 rounded hover:bg-orange-600 transition"
+      on:click={() => handleButtonClick("%")}>%</button
+    >
+    {#each ["7", "8", "9"] as buttonValue}
+      <button
+        class="bg-blue-500 text-white p-4 rounded hover:bg-blue-600 transition"
+        on:click={() => handleButtonClick(buttonValue)}>{buttonValue}</button
+      >
+    {/each}
+
+    <button
+      class="bg-orange-500 text-white p-4 rounded hover:bg-orange-600 transition"
+      on:click={() => handleButtonClick("/")}>/</button
+    >
+
+    {#each ["4", "5", "6"] as buttonValue}
+      <button
+        class="bg-blue-500 text-white p-4 rounded hover:bg-blue-600 transition"
+        on:click={() => handleButtonClick(buttonValue)}>{buttonValue}</button
+      >
+    {/each}
+
+    <button
+      class="bg-orange-500 text-white p-4 rounded hover:bg-orange-600 transition"
+      on:click={() => handleButtonClick("*")}>*</button
+    >
+
+    {#each ["1", "2", "3"] as buttonValue}
+      <button
+        class="bg-blue-500 text-white p-4 rounded hover:bg-blue-600 transition"
+        on:click={() => handleButtonClick(buttonValue)}>{buttonValue}</button
+      >
+    {/each}
+
+    <button
+      class="bg-orange-500 text-white p-4 rounded hover:bg-orange-600 transition"
+      on:click={() => handleButtonClick("-")}>-</button
+    >
+
+    {#each ["0", "."] as buttonValue}
+      <button
+        class="bg-blue-500 text-white p-4 rounded hover:bg-blue-600 transition"
+        on:click={() => handleButtonClick(buttonValue)}>{buttonValue}</button
+      >
+    {/each}
+    <button
+      class="bg-green-500 text-white p-4 rounded hover:bg-green-600 transition"
+      on:click={() => handleButtonClick("=")}>=</button
+    >
+    <button
+      class="bg-orange-500 text-white p-4 rounded hover:bg-orange-600 transition"
+      on:click={() => handleButtonClick("+")}>+</button
+    >
+  </div>
+</div>

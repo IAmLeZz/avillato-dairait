@@ -1,19 +1,17 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"math"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/Knetic/govaluate"
 	"github.com/gin-gonic/gin"
 )
 
 type OperationRequest struct {
-	Operator string  `json:"operator"`
-	Num1     float64 `json:"num1"`
-	Num2     float64 `json:"num2"`
+	Expression string `json:"expression"`
 }
 
 type OperationResponse struct {
@@ -25,28 +23,26 @@ type OperationResponse struct {
 
 var history = make([]OperationResponse, 0)
 
-func calculate(operator string, num1 float64, num2 float64) (float64, error) {
-	var result float64
-	var err error
-
-	switch operator {
-	case "+":
-		result = num1 + num2
-	case "-":
-		result = num1 - num2
-	case "*":
-		result = num1 * num2
-	case "/":
-		result = num1 / num2
-	case "%":
-		result = math.Mod(num1, num2)
-	default:
-		err = errors.New("syntax error")
+// Verificar y calcular la expresión recibida
+func calculate(expression string) (float64, error) {
+	if strings.HasPrefix(expression, "+") {
+		expression = "0" + expression
 	}
 
-	return result, err
+	expr, err := govaluate.NewEvaluableExpression(expression)
+	if err != nil {
+		return 0, err
+	}
+
+	result, err := expr.Evaluate(nil)
+	if err != nil {
+		return 0, err
+	}
+
+	return result.(float64), nil
 }
 
+// Recibir y verificar operación. Usar la función calculate para obtener un resultado que será devuelto al usuario y añadir al historial.
 func postOperation(c *gin.Context) {
 	var request OperationRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -54,18 +50,17 @@ func postOperation(c *gin.Context) {
 		return
 	}
 
-	result, err := calculate(request.Operator, request.Num1, request.Num2)
+	result, err := calculate(request.Expression)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		fmt.Println(err.Error())
 		return
 	}
-
 	response := OperationResponse{
 		Result:    result,
 		Error:     "",
 		Time:      time.Now().Format("2006-01-02 15:04:05"),
-		Operation: request.Operator,
+		Operation: request.Expression,
 	}
 
 	history = append(history, response)
@@ -77,6 +72,7 @@ func getHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, history)
 }
 
+// Utilizar CORS para compatibilidad con navegadores.
 func CORS() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
