@@ -1,13 +1,25 @@
 <script lang="ts">
   import { GOLANG_SERVER } from "../utils/constants";
-  import { history } from "./store";
+  import {
+    history,
+    currentResultStored,
+    currentExpressionStored,
+  } from "./store";
 
-  let currentExpression: string = "";
-  let result: string = "";
+  let currentExpression = $currentExpressionStored;
+  let currentResult = $currentResultStored;
+
+  currentExpressionStored.subscribe((value) => {
+    currentExpression = value;
+  });
+
+  currentResultStored.subscribe((value) => {
+    currentResult = value;
+  });
 
   // Enviar expresión al backend de Go. Refrescar historial
   const calculate = async () => {
-    if (currentExpression) {
+    if (currentExpressionStored) {
       const response = await fetch(`${GOLANG_SERVER}/operation`, {
         method: "POST",
         headers: {
@@ -18,7 +30,7 @@
         }),
       });
       const res = await response.json();
-      result = (Math.round(res.result * 100) / 100).toString();
+      currentResult = (Math.round(res.result * 100) / 100).toString();
       const newEntry: Operation = {
         result: res.result,
         time: res.time,
@@ -28,41 +40,39 @@
     }
   };
 
-  // Manejar botones ingresados. Si es "=" calcular. Si no, añadir a la operación. Utilizar ultimo resultado después de clickear en otro botón.
+  // Manejar botones ingresados. Si es "=" calcular. Si no, añadir a la operación. Utilizar ultimo resultado después de clickear en otro botón
   const handleButtonClick = (value: string) => {
     if (value === "=") {
       calculate();
-    } else if (result) {
-      currentExpression = result += value;
-      result = "";
+    } else if (currentResult) {
+      currentExpression = currentResult += value;
+      currentResult = "";
     } else {
-      // Check if the last character is an operator
+      // Verificar si el último caracter es un operador
       const lastChar = currentExpression.slice(-1);
       const operators = ["+", "-", "*", "/"];
       if (!operators.includes(lastChar) || !operators.includes(value)) {
         currentExpression += value;
       }
-      result = "";
+      currentResult = "";
     }
   };
 
   // Limpiar todo
   const clear = () => {
     currentExpression = "";
-    result = "";
+    currentResult = "";
   };
 
-  // Limpiar último dato
+  // Limpiar última entrada
   const clearEntry = () => {
     currentExpression = currentExpression.slice(0, -1);
   };
-
+  // Invertir operadores - y +
   const changeSign = () => {
-    if (currentExpression.charAt(0) === "-") {
-      currentExpression = currentExpression.slice(1);
-    } else {
-      currentExpression = `-${currentExpression}`;
-    }
+    currentExpression = currentExpression.replace(/[+-]/g, (match) =>
+      match === "+" ? "-" : "+",
+    );
   };
 </script>
 
@@ -74,7 +84,7 @@
   >
     <p class="text-right min-h-6 text-white">
       {currentExpression}
-      {result && " = " + result}
+      {currentResult && " = " + currentResult}
     </p>
   </div>
 
@@ -83,18 +93,22 @@
       class="bg-red-500 text-white p-4 rounded hover:bg-red-600 transition"
       on:click={clearEntry}>CE</button
     >
+
     <button
       class="bg-red-500 text-white p-4 rounded hover:bg-red-600 transition"
       on:click={clear}>C</button
     >
+
     <button
       class="bg-orange-500 text-white p-4 rounded hover:bg-orange-600 transition"
       on:click={changeSign}>+/-</button
     >
+
     <button
       class="bg-orange-500 text-white p-4 rounded hover:bg-orange-600 transition"
       on:click={() => handleButtonClick("%")}>%</button
     >
+
     {#each ["7", "8", "9"] as buttonValue}
       <button
         class="bg-blue-500 text-white p-4 rounded hover:bg-blue-600 transition"
@@ -137,10 +151,12 @@
         on:click={() => handleButtonClick(buttonValue)}>{buttonValue}</button
       >
     {/each}
+
     <button
       class="bg-green-500 text-white p-4 rounded hover:bg-green-600 transition"
       on:click={() => handleButtonClick("=")}>=</button
     >
+
     <button
       class="bg-orange-500 text-white p-4 rounded hover:bg-orange-600 transition"
       on:click={() => handleButtonClick("+")}>+</button

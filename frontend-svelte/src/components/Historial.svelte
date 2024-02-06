@@ -1,7 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import axios from "axios";
-  import { history } from "./store";
+  import {
+    history,
+    currentExpressionStored,
+    currentResultStored,
+  } from "./store";
   import { GOLANG_SERVER } from "../utils/constants";
 
   let historyData: Operation[] = [];
@@ -14,6 +18,10 @@
     const response = await axios.get(`${GOLANG_SERVER}/history`);
     history.set(response.data);
   });
+  const handleExpressionClick = (expression: string, result: string) => {
+    currentExpressionStored.set(expression);
+    currentResultStored.set(result);
+  };
 </script>
 
 <div
@@ -35,7 +43,18 @@
         <tr class="mx-2 border-b">
           <td class="border-r">{item.time && item.time}</td>
           <td class="border-r">{item.operation && item.operation}</td>
-          <td>{item.result && item.result}</td>
+          <td
+            tabindex="0"
+            on:click={() => handleExpressionClick(item.operation, item.result)}
+            on:keydown={(event) => {
+              if (event.key === "Enter") {
+                handleExpressionClick(item.operation, item.result);
+              }
+            }}
+            class="text-blue-400 hover:bg-gray-900 hover:cursor-pointer"
+          >
+            {item.result && item.result}
+          </td>
         </tr>
       {/each}
     </tbody>

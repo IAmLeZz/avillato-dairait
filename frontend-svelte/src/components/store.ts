@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
-import type { Operation } from '../utils/types'
 
 export const history = writable<Operation[]>([]);
+export const currentExpressionStored = writable<string>("");
+export const currentResultStored = writable<string>("");

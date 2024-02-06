@@ -1,5 +1,5 @@
 interface Operation {
-    result: number,
+    result: string,
     time: string,
     operation: string,
-  }
+}
