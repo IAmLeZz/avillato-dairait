@@ -16,8 +16,11 @@
 
   onMount(async () => {
     const response = await axios.get(`${GOLANG_SERVER}/history`);
-    history.set(response.data);
+    if (Array.isArray(response.data)) {
+      history.set(response.data);
+    }
   });
+
   const handleExpressionClick = (expression: string, result: string) => {
     currentExpressionStored.set(expression);
     currentResultStored.set(result);
@@ -39,24 +42,27 @@
       </tr>
     </thead>
     <tbody class="mx-2 p-5 space-y-4 text-center">
-      {#each historyData as item (item.time)}
-        <tr class="mx-2 border-b">
-          <td class="border-r">{item.time && item.time}</td>
-          <td class="border-r">{item.operation && item.operation}</td>
-          <td
-            tabindex="0"
-            on:click={() => handleExpressionClick(item.operation, item.result)}
-            on:keydown={(event) => {
-              if (event.key === "Enter") {
-                handleExpressionClick(item.operation, item.result);
-              }
-            }}
-            class="text-blue-400 hover:bg-gray-900 hover:cursor-pointer"
-          >
-            {item.result && item.result}
-          </td>
-        </tr>
-      {/each}
+      {#if historyData != null}
+        {#each historyData as item (item.time)}
+          <tr class="mx-2 border-b">
+            <td class="border-r">{item.time && item.time}</td>
+            <td class="border-r">{item.operation && item.operation}</td>
+            <td
+              tabindex="0"
+              on:click={() =>
+                handleExpressionClick(item.operation, item.result)}
+              on:keydown={(event) => {
+                if (event.key === "Enter") {
+                  handleExpressionClick(item.operation, item.result);
+                }
+              }}
+              class="text-blue-400 hover:bg-gray-900 hover:cursor-pointer"
+            >
+              {item.result && item.result}
+            </td>
+          </tr>
+        {/each}
+      {/if}
     </tbody>
   </table>
 </div>

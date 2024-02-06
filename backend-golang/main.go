@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Knetic/govaluate"
@@ -21,7 +22,27 @@ type OperationResponse struct {
 	Operation string  `json:"operation"`
 }
 
-var history = make([]OperationResponse, 0)
+// Crear un Mutex para guardar el historial de operaciones de manera thread-safe.
+type History struct {
+	sync.Mutex
+	data []OperationResponse
+}
+
+// Añadir una operación al historial
+func (h *History) Add(item OperationResponse) {
+	h.Lock()
+	defer h.Unlock()
+	h.data = append(h.data, item)
+}
+
+// Obtener todos los elementos del historial.
+func (h *History) GetAll() []OperationResponse {
+	h.Lock()
+	defer h.Unlock()
+	return h.data
+}
+
+var history = &History{}
 
 // Verificar y calcular la expresión recibida
 func calculate(expression string) (float64, error) {
@@ -52,8 +73,7 @@ func postOperation(c *gin.Context) {
 
 	result, err := calculate(request.Expression)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		fmt.Println(err.Error())
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Errorf("error al calcular la expresión: %w", err)})
 		return
 	}
 	response := OperationResponse{
@@ -63,13 +83,13 @@ func postOperation(c *gin.Context) {
 		Operation: request.Expression,
 	}
 
-	history = append(history, response)
+	history.Add(response)
 
 	c.JSON(http.StatusOK, response)
 }
 
 func getHistory(c *gin.Context) {
-	c.JSON(http.StatusOK, history)
+	c.JSON(http.StatusOK, history.GetAll())
 }
 
 // Utilizar CORS para compatibilidad con navegadores.
